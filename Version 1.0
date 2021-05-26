@@ -1,0 +1,403 @@
+from tkinter import *
+import tkinter as tk
+import csv
+import time
+from tkinter import messagebox
+
+root = tk.Tk()
+root.title("Generare fisier CSV - Interfata")
+root.geometry("1920x1080")
+
+# root.wm_attributes("-transparentcolor", "black")
+# PARTEA FULL DE INTERFATA - SINGURELE DATE CARE SUNT TRASE DE AICI SUNT STATE-URILE BUTOANELOR!!!
+
+lista_etichete = ['Modul_PID', 'Kp', 'Ki', 'Kd', 'Setpoint', 'Lim_Inf_output', 'Lim_Sup_output',
+                'Val_Update_Setpoint', 'Val_Inceput_Setpoint', 'Timp_Update_Setpoint', 'Punct_inf_eroare_real',
+                'Punct_sup_eroare_real', 'Punct_sup_eroare_mapat', 'Punct_inf_eroare_mapat']
+
+# Definim ceasul pentru a vedea cand s-a facut ultimul update (legat la functia de click de pe butonul de export)
+Label(root, text="Cand s-a facut ultimul update?").grid(row=0, column=50)
+clock = Label(root)
+clock.grid(row=1, column=50)
+afisare_fisier = Label(root, font=("Helvetica", 13))
+afisare_fisier.grid(row=2, column=50, rowspan=15)
+
+
+def get_time():
+    time_var= time.strftime("%I:%M:%S %p")
+    clock.config(text=time_var)
+    reader = open("configFile - test.txt", "r")
+    stuff = reader.read()
+    afisare_fisier.config(text=stuff)
+
+
+def leave(e):
+    export_neutral = PhotoImage(file="Images\Buton Export.png")
+    genereaza_fisier_buton["image"] = export_neutral
+    genereaza_fisier_buton.image = export_neutral
+
+def enter(e):
+    export_hovered = PhotoImage(file="Images\Mouse hover.png")
+    genereaza_fisier_buton["image"] = export_hovered
+    genereaza_fisier_buton.image = export_hovered
+
+def clicked(e):
+    export_exported = PhotoImage(file="Images\Exported File.png")
+    genereaza_fisier_buton["image"] = export_exported
+    genereaza_fisier_buton.image = export_exported
+
+
+# Imaginile butoanelor, state-urile on si off
+on = PhotoImage(file="Images\Buton On.png")
+off = PhotoImage(file="Images\Buton Off.png")
+export_neutral = PhotoImage(file="Images\Buton Export.png")
+entry_field_image = PhotoImage(file="Images\Entry field.png")
+wrong_entry_image = PhotoImage(file="Images\Wrong entry.png")
+#command=lambda: [ScriereCSV(getButtonState(),
+#                                                check_parametrii_temp(lista_entry_OBIECTELE_Temp),
+#                                                GetEntryValue_CONC(lista_entry_OBIECTELE_Conc)), get_time()])
+
+# Butonul de generare fisier
+genereaza_fisier_buton = Button(root, state=NORMAL, bd=0, relief=SUNKEN, image=export_neutral,
+                                command=lambda: [functie_check_range_TEMP(), ScriereCSV(getButtonStateTemp(), getButtonStateConc(), list_to_string(GetEntryValue_TEMP(lista_entry_OBIECTELE_Temp)), list_to_string(GetEntryValue_CONC(lista_entry_OBIECTELE_Conc))), get_time()])
+
+genereaza_fisier_buton.image = export_neutral
+genereaza_fisier_buton.grid(row=90, column=0, pady=0, padx=0)
+
+genereaza_fisier_buton.bind("<Button-1>", clicked)
+genereaza_fisier_buton.bind("<Enter>", enter)
+genereaza_fisier_buton.bind("<Leave>", leave)
+# Aici am definit clasa Cuptor cu label-uri, ele nu se modifica si n-avem nevoie de date de la ele.
+dict_optiuni = {"None" : 0,
+           "Platina" : 1,
+          "Fier" : 2,
+          "Cupru" : 3,
+          "Bismut" : 4}
+
+optiuni = ["None", "Platina", "Fier", "Cupru", "Bismut"]
+
+class Cuptor:
+
+    def __init__(self, nrCuptor, coloana, rand):
+        self.is_on_temp = 1
+        self.is_on_conc = 0
+        # Label cu numele cuptorului:
+        self.label_Cup = Label(root, text=f"Cuptorul {nrCuptor}")
+        self.label_Cup.grid(row=rand, column=coloana, pady=2, padx=1)
+
+        # Label Temperatura deasupra entry Temperatura
+        self.label_T = Label(root, text=f"Temperatura")
+        self.label_T.grid(row=rand + 1, column=coloana + 1, pady=2, padx=1)
+
+        # Label Concentratie deasupra entry Concentratie
+        self.label_C = Label(root, text=f"Concentratie")
+        self.label_C.grid(row=rand + 1, column=coloana + 2, pady=2, padx=1)
+
+        # Label pentru fiecare parametru
+        for x in range(0, len(lista_etichete)):
+            self.label_Par = Label(root, text=f"{lista_etichete[x]}")
+            self.label_Par.grid(row=2 + x + rand, column=coloana, pady=3, padx=1)
+
+        self.clicked = StringVar()
+        self.clicked.set(optiuni[0])
+
+        self.material = OptionMenu(root, self.clicked, *optiuni)
+        self.material.grid(row=rand + 1, column=coloana)
+
+        # Butoanele:
+        self.on_button_Temp = Button(root, image=on, bd=0, command=self.switchTemp, relief=SUNKEN)
+        self.on_button_Temp.grid(row=rand, column=coloana + 1, pady=2, padx=1)
+
+        self.on_button_Conc = Button(root, image=off, bd=0, command=self.switchConc, relief=SUNKEN)
+        self.on_button_Conc.grid(row=rand, column=coloana + 2, pady=2, padx=1)
+
+
+
+
+    def switchTemp(self):
+        if self.is_on_temp == 1:
+            self.on_button_Temp.config(image=off)
+            self.is_on_temp = 0
+        else:
+            self.on_button_Temp.config(image=on)
+            self.is_on_temp = 1
+    def switchConc(self):
+        if self.is_on_conc == 1:
+            self.on_button_Conc.config(image=off)
+            self.is_on_conc = 0
+        else:
+            self.on_button_Conc.config(image=on)
+            self.is_on_conc = 1
+
+
+# Aici introduci cate cuptoare ai nevoie:
+nrCuptoare = 6
+
+
+# Aici generam cuptoarele (ca obiecte din clasa Cuptor) si le punem intr-o lista:
+lista_Cuptoare = []
+coloana = 0
+coloana2 = 0
+row = 0
+for cuptor in range(0, nrCuptoare):
+    if cuptor <= 3:
+        ObiectulCuptor = Cuptor(cuptor, coloana, row)
+        coloana += 3
+    else:
+        ObiectulCuptor = Cuptor(cuptor, coloana2, row + 16)
+        coloana2 += 3
+    lista_Cuptoare.append(ObiectulCuptor)
+
+# PARTEA DE BACKEND, FUNCTIONALITATE, SCRIERE CSV, EXTRAGERE DATE DIN ENTRY-URI SI CREEAREA ENTRY-URILOR!!!
+
+# Functie care ia state-ul butonului (on sau off printat 1 sau 0). DONE!
+# state_butoane = lista ce contine state-ul butoanelor, ulterior folosita pentru a scrie state-ul in fisierul csv
+def getButtonStateTemp():
+    state_butoane = []
+    for i in range(0, nrCuptoare):
+        state_butoane.append(lista_Cuptoare[i].is_on_temp)
+    state_butoane.append("00")
+    list_to_str = ''.join(map(str, state_butoane))
+    return list_to_str
+
+def getButtonStateConc():
+    state_butoane = []
+    for i in range(0, nrCuptoare):
+        state_butoane.append(lista_Cuptoare[i].is_on_conc)
+    state_butoane.append("00")
+    list_to_str = ''.join(map(str, state_butoane))
+    return list_to_str
+
+
+parametriiInitiali_TEMP = ["2", "1", "1", "1", "500", "0", "5000", "0", "0", "0", "0", "0", "0", "0"]
+parametriiInitiali_CONC = ["2", "1", "1", "1", "1E-08", "0", "5000", "0", "0", "0", "0", "0", "0", "0"]
+# Astea sunt 2 liste de verificare a parametrilor, trebuie ca fiecare parametru sa fie in range-ul ala
+# lista_range_entry_TEMP = [range(len(lista_Cuptoare) + 1), range(6), range(11), range(11), range(11), range(50, 601), range(1), range(5001), range(51), range(1), range(501), range(1), range(1), range(1), range(1)]
+lista_range_entry_TEMP = [[0, 8], [0, 5], [0, 10], [0, 10], [0, 10], [50, 600], [0, 0], [0, 5000], [0, 50], [0, 0], [0, 500], [0, 0], [0, 0], [0, 0], [0, 0]]
+
+# lista_range_entry_CONC = [range(len(lista_Cuptoare) + 1), range(6), range(11), range(11), range(11), range(0, 5000), range(1), range(5001), range(51), range(1), range(501), range(1), range(1), range(1), range(1)]
+lista_range_entry_CONC = [[0, 8], [0, 5], [0, 10], [0, 10], [0, 10], [10E-09, 10E-06], [0, 0], [0, 5000], [0, 50], [0, 0], [0, 500], [0, 0], [0, 0], [0, 0], [0, 0]]
+
+
+# Definim functie de pop-up error:
+def popup():
+    messagebox.showwarning("Ai gresit ceva", "Ai introdus un parametru in afara range-ului sau, vezi care.")
+
+
+# Definim functia de luare a materialului folosit la concentratie, pentru fiecare cuptor
+
+
+# Aici generam entry-urile pentru temperatura
+lista_entry_OBIECTELE_Temp = []
+coloana = 1
+coloana2 = 1
+lista_temporara1 = []
+lista_temporara2 = []
+
+
+
+"modifica primul range din lista daca ai range(0, 5) iti verifica in 0, 1, 2, 3, 4. 5 ITEMI nu de la 0 la 5, "
+"daca vr de la 0 la 5 pui range(0, 6) sau range(6)"
+
+for cuptor in range(0, len(lista_Cuptoare)):
+    if cuptor <= 3:
+        rand = 2
+        for parametru in range(0, len(lista_etichete)):
+            entry_box_label = Label(root, image=entry_field_image)
+            entry_box_label.grid(row=rand, column=coloana)
+            entry_box = Entry(root, width=10, bd=0, bg="#818F99")
+            entry_box.grid(row=rand, column=coloana)
+            entry_box.insert(0, parametriiInitiali_TEMP[parametru])
+            rand += 1
+            lista_temporara1.append(entry_box)
+        coloana += 3
+        lista_entry_OBIECTELE_Temp.append(lista_temporara1)
+        lista_temporara1 = []
+
+    else:
+        rand = 2
+        for parametru in range(0, len(lista_etichete)):
+            entry_box_label = Label(root, image=entry_field_image)
+            entry_box_label.grid(row=rand + 16, column=coloana2)
+            entry_box = Entry(root, width=10, bd=0, bg="#818F99")
+            entry_box.grid(row=rand + 16, column=coloana2)
+            entry_box.insert(0, parametriiInitiali_TEMP[parametru])
+            rand += 1
+            lista_temporara2.append(entry_box)
+        coloana2 += 3
+        lista_entry_OBIECTELE_Temp.append(lista_temporara2)
+        lista_temporara2 = []
+
+
+def functie_check_range_TEMP():
+    lista_bool = []
+    count = 0
+    lista_liste_TEMP = GetEntryValue_TEMP(lista_entry_OBIECTELE_Temp)
+
+    for lista in lista_liste_TEMP:
+        for parametru in lista:
+
+            if parametru >= lista_range_entry_TEMP[count][0] and parametru <= lista_range_entry_TEMP[count][1]:
+                lista_bool.append(True)
+            else:
+                lista_bool.append(False)
+            count += 1
+        count = 0
+
+
+    if str(set(lista_bool)) == "{True}":
+        return True
+    else:
+        return False
+
+# Asta e functia care preia datele din Entry-uri pentru Temperatura:
+def GetEntryValue_TEMP(lista_entry_OBIECTELE_Temp):
+    lista_temporara1 = []
+    lista_valori_entry_temp = []
+    count = 0
+    for listaParametrii in lista_entry_OBIECTELE_Temp:
+        lista_temporara1.append(count)
+        for entryTemp in listaParametrii:
+            lista_temporara1.append(int(entryTemp.get()))
+        lista_valori_entry_temp.append(lista_temporara1)
+        lista_temporara1 = []
+        count += 1
+    # print(f"Lista entry valori Temp: {lista_valori_entry_temp}")
+    #print(f"Tipul de date din lista {type(lista_valori_entry_temp[0])}")
+    return lista_valori_entry_temp
+
+
+# Aici generam entry-urile pentru Concentratie
+lista_entry_OBIECTELE_Conc = []
+coloana = 2
+coloana2 = 2
+lista_temporara1 = []
+lista_temporara2 = []
+
+for cuptor in range(0, len(lista_Cuptoare)):
+    if cuptor <= 3:
+        rand = 2
+        for parametru in range(0, len(lista_etichete)):
+            entry_box_label = Label(root, image=entry_field_image)
+            entry_box_label.grid(row=rand, column=coloana)
+            entry_box = Entry(root, width=10, bd=0, bg="#818F99")
+            entry_box.grid(row=rand, column=coloana)
+            entry_box.insert(0, parametriiInitiali_CONC[parametru])
+
+            rand += 1
+            lista_temporara1.append(entry_box)
+        coloana += 3
+        lista_entry_OBIECTELE_Conc.append(lista_temporara1)
+        lista_temporara1 = []
+
+    else:
+        rand = 2
+        for parametru in range(0, len(lista_etichete)):
+            entry_box_label = Label(root, image=entry_field_image)
+            entry_box_label.grid(row=rand + 16, column=coloana2)
+            entry_box = Entry(root, width=10, bd=0, bg="#818F99")
+            entry_box.grid(row=rand + 16, column=coloana2)
+            entry_box.insert(0, parametriiInitiali_CONC[parametru])
+            rand += 1
+            lista_temporara2.append(entry_box)
+        coloana2 += 3
+        lista_entry_OBIECTELE_Conc.append(lista_temporara2)
+        lista_temporara2 = []
+
+
+def functie_check_range_CONC():
+    lista_bool = []
+    count = 0
+    lista_liste_CONC = GetEntryValue_CONC(lista_entry_OBIECTELE_Conc)
+
+    for lista in lista_liste_CONC:
+        for parametru in lista:
+
+            if parametru >= lista_range_entry_CONC[count][0] and parametru <= lista_range_entry_CONC[count][1]:
+                lista_bool.append(True)
+            else:
+                lista_bool.append(False)
+            count += 1
+        count = 0
+
+
+    if str(set(lista_bool)) == "{True}":
+        return True
+    else:
+        return False
+
+
+# Asta e functia care preia datele din Entry-uri pentru Concentratie:
+def GetEntryValue_CONC(lista_entry_OBIECTELE_Conc):
+    lista_temporara1 = []
+    lista_valori_entry_conc = []
+    count = 0
+    counter = 0
+    for listaParametrii in lista_entry_OBIECTELE_Conc:
+        lista_temporara1.append(count)
+        for entryConc in listaParametrii:
+            if counter == 4:
+                lista_temporara1.append(float(entryConc.get()))
+            else:
+                lista_temporara1.append(int(entryConc.get()))
+            counter += 1
+        counter = 0
+        lista_valori_entry_conc.append(lista_temporara1)
+        lista_temporara1 = []
+        count += 1
+    return lista_valori_entry_conc
+
+
+def list_to_string(lista_valori_entry):
+    lista_stringuri = []
+    for lista in lista_valori_entry:
+        list_to_str = ','.join(map(str, lista))
+        lista_stringuri.append(list_to_str)
+    return lista_stringuri
+
+
+# Aici definim functia de scriere a fisierului CSV
+def ScriereCSV(state_butoaneTemp, state_butoaneConc, lista_stringuri_temp, lista_stringuri_conc):
+    lista_materiale = []
+    for i in range(0, nrCuptoare):
+        lista_materiale.append(lista_Cuptoare[i].clicked.get())
+
+    counter = 0
+    lista_temporara = [dict_optiuni[x] for x in lista_materiale]
+    lista_stringuri_conc_noua = []
+    for item in lista_stringuri_conc:
+        lista_stringuri_conc_noua.append(item + f",{str(lista_temporara[counter])}")
+        counter += 1
+
+    if functie_check_range_TEMP() == True and functie_check_range_CONC() == True:
+        with open("configFile - test.txt", "w", newline="") as file:
+            the_writer = csv.writer(file, delimiter='"')
+
+            # Scriere Flag"
+            the_writer.writerow(["Updated"])
+
+            # Scriere State Butoane"
+            the_writer.writerow([f"{state_butoaneTemp}"])
+
+            # Scriere pentru partea de temperatura:
+            the_writer.writerow([lista_stringuri_temp[0]])
+            the_writer.writerow([lista_stringuri_temp[1]])
+            the_writer.writerow([lista_stringuri_temp[2]])
+            the_writer.writerow([lista_stringuri_temp[3]])
+            the_writer.writerow([lista_stringuri_temp[4]])
+            the_writer.writerow([lista_stringuri_temp[5]])
+
+            # Scriere State Butoane"
+            the_writer.writerow([f"{state_butoaneConc}"])
+            # Scriere pentru partea de concentratie:
+            the_writer.writerow([lista_stringuri_conc_noua[0]])
+            the_writer.writerow([lista_stringuri_conc_noua[1]])
+            the_writer.writerow([lista_stringuri_conc_noua[2]])
+            the_writer.writerow([lista_stringuri_conc_noua[3]])
+            the_writer.writerow([lista_stringuri_conc_noua[4]])
+            the_writer.writerow([lista_stringuri_conc_noua[5]])
+
+    else:
+        popup()
+
+root.mainloop()
